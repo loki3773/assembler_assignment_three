@@ -38,11 +38,27 @@ void injection(FILE *machine, int line, int ret)
 		{
 			temp = fgetc(injection_code);
 			if (temp == 32 || temp == 9)//공백일 경우.
-			{	//공백이 없을 때 까지 입력받는다. 미리 operand에 한번 불러옴
-				fscanf_s(injection_code, "%d", &operand, sizeof(operand));
-				while (operand == 32)
+			{	
+				//공백이 없을 때 까지 입력받는다. 미리 operand에 한번 불러옴
+				while (temp == 32) temp = fgetc(injection_code);
+				/*
+				* temp가 스페이스가 아니면 반복문이 끝나기에 파일위치를 한칸되돌려준다.
+				* 이때 대문자일 경우 개행문자가 없이 다음줄로 넘어간 것이기에 break
+				*/
+				if ((temp >= 65 && temp <= 90))
 				{
+					fseek(injection_code, -1, SEEK_CUR);
+					break;
+				}
+				else if (temp == 10)//개행발견시 점프
+				{
+					break;
+				}
+				else//개행문자도 발견 못하면 숫자라고 판단.
+				{
+					fseek(injection_code, -1, SEEK_CUR);
 					fscanf_s(injection_code, "%d", &operand, sizeof(operand));
+					//공백인데 다음숫자가 없으며 개행문자도 없다면 break
 				}
 			}
 			//개행문자
@@ -256,8 +272,11 @@ int main(int argc, char* argv[])
 	 * 실행시 입력받은 문자열들로 파일을 연다.
 	 * 실행파일을 더블클릭하여 열었을 땐 다른방법 필요.
 	 */
-	fopen_s(&asm,argv[0], "r");
-	fopen_s(&machine,argv[1], "w");
+	fopen_s(&asm,argv[1], "r");
+	fopen_s(&machine,argv[2], "w+");
+
+	//fopen_s(&asm, "test.txt", "r");
+	//fopen_s(&machine, "asm_test.txt", "w+");
 
 	//파일입출력 실패시 콘솔창에 메세지 출력
 	if (asm == -1)
@@ -296,13 +315,30 @@ int main(int argc, char* argv[])
 			temp = fgetc(asm);
 			printf("%c", temp);
 			if (temp == 32 || temp == 9)//공백일 경우.
-			{	//공백이 없을 때 까지 입력받는다. 미리 operand에 한번 불러옴
-				fscanf_s(asm, "%d", &operand, sizeof(operand));
-				while (operand == 32)
+			{	
+				//공백이 없을 때 까지 입력받는다. 미리 operand에 한번 불러옴
+				while (temp == 32) temp = fgetc(asm);
+				/*
+				* temp가 스페이스가 아니면 반복문이 끝나기에 파일위치를 한칸되돌려준다.
+				* 이때 대문자일 경우 개행문자가 없이 다음줄로 넘어간 것이기에 break
+				*/
+				if ((temp >= 65 && temp <= 90))
 				{
-					fscanf_s(asm, "%d", &operand, sizeof(operand));
+					fseek(asm, -1, SEEK_CUR);
+					break;
 				}
-				printf("	%d", operand);
+				else if (temp == 10)//개행발견시 점프
+				{
+					printf("%c", temp);
+					break;
+				}
+				else//개행문자도 발견 못하면 숫자라고 판단.
+				{
+					fseek(asm, -1, SEEK_CUR);
+					fscanf_s(asm, "%d", &operand, sizeof(operand));
+					//공백인데 다음숫자가 없으며 개행문자도 없다면 break
+					printf("	%d", operand);
+				}
 			}
 			//개행문자
 			else if (temp == 10)
@@ -328,6 +364,7 @@ int main(int argc, char* argv[])
 			}
 			i++;
 		}
+		//메모리번지를 범위초과 지정시 종료
 		if (operand > 99 && operand < 0)
 		{
 			printf("memory out");
@@ -499,8 +536,8 @@ int main(int argc, char* argv[])
 	//악성코드 주입함수를 호출
 	injection(machine, asm_line, ret);
 	//파일의 전체 라인수를 구한다.
-	rewind(asm);
-	for (asm_line = 0; !feof(asm); asm_line++)	fgets(Ctemp, 256, asm);
+	rewind(machine);
+	for (asm_line = 0; !feof(machine); asm_line++)	fgets(Ctemp, 256, machine);
 	
 	if (asm_line > 99)
 	{
