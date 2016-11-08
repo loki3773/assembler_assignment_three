@@ -1,0 +1,5 @@
+INP
+ADD 80
+BRA
+STA 81
+HLT
