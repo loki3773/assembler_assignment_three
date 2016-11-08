@@ -256,11 +256,8 @@ int main(int argc, char* argv[])
 	 * 실행시 입력받은 문자열들로 파일을 연다.
 	 * 실행파일을 더블클릭하여 열었을 땐 다른방법 필요.
 	 */
-	//fopen_s(&asm,argv[0], "r");
-	//fopen_s(&machine,argv[1], "w");
-
-	fopen_s(&asm,"test.txt","r");
-	fopen_s(&machine, "asm_test.txt", "r+");
+	fopen_s(&asm,argv[0], "r");
+	fopen_s(&machine,argv[1], "w");
 
 	//파일입출력 실패시 콘솔창에 메세지 출력
 	if (asm == -1)
