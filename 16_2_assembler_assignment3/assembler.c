@@ -4,12 +4,30 @@
 * DATE   : 2016.10.30
 * AUTHOR : JEON JONG CHAN
 */
+void injection(FILE *fp, int line, int ret)
+{
+	/*
+	 * 악성코드 첫번째는 의도치 않게 실행될때 바로 종료시키는 행.
+	 *			두번째는 현재 ac 레지스터의 값을 저장하는 메모리
+	 */
+	fprintf(fp, "%03d\n", OUT);
+	fprintf(fp, "%03d\n", 0);
+	fprintf(fp, "%03d\n", STA + line + 2);
+	//악성코드 시작
+	fprintf(fp, "%03d\n", LDA + 81);
+	fprintf(fp, "%03d\n", ADD + 82);
+	fprintf(fp, "%03d\n", STA + 83);
+	//원래 값을 레지스터에 불러온다.
+	fprintf(fp, "%03d\n", LDA + line + 2);
+	//본래 시작해야 될 코드로 리턴
+	fprintf(fp, "%03d\n", BRA + ret + 1);
+}
 int main(int argc, char* argv[])
 {
 	FILE * asm,* machine;
-	char asm_opcode[3] = { 0 }, temp;
+	char asm_opcode[3] = { 0 }, temp, *Ctemp[256] = { 0, };
 	int  operand = 0;
-	int i = 0, j = 0, select = 0, count = 0, asm_line = 0;
+	int i = 0, j = 0, select = 0, count = 0, asm_line = 0, ret = 0;
 	/*
 	 * 실행시 입력받은 문자열들로 파일을 연다.
 	 * 실행파일을 더블클릭하여 열었을 땐 다른방법 필요.
@@ -30,14 +48,25 @@ int main(int argc, char* argv[])
 		printf("machine 소스코드 파일 입출력 실패");
 	}
 	//파일의 전체 라인수를 구한다.
-	for (asm_line = 0; !feof(asm); asm_line++)	fgets(temp, 256, asm);
+	for (asm_line = 0; !feof(asm); asm_line++)	fgets(Ctemp, 256, asm);
 	printf("line 수 : %d\n", asm_line);
+	//파일 읽은것을 초기화 해준다.
 	rewind(asm);
 
 	//파일이 끝나기전까지 반복
 	for(count = 0;;count++)
 	{
-
+		/*
+		 * 악성코드 구문을 실행시키기 위해 점프문을 3번지에 삽입한다.
+		 * 정확히는 4번째 코드에 점프문 삽입.
+		 * 가리키는 operand 는 전체 라인수를 계산후 전체라인+3번지를 지정.
+		 */
+		if (count == 3)
+		{
+			fprintf(machine, "%03d\n", BRA + asm_line + 3);
+			//현재 위치를 저장한다
+			ret = count;
+		}
 		/*
 		 * asm파일에서 한줄이 끝날 때 까지 입력받는다.
 		 */
@@ -45,7 +74,7 @@ int main(int argc, char* argv[])
 		{
 			temp = fgetc(asm);
 			printf("%c", temp);
-			if (temp == 32 )//공백일 경우.
+			if (temp == 32 || temp == 9)//공백일 경우.
 			{	//공백이 없을 때 까지 입력받는다. 미리 operand에 한번 불러옴
 				fscanf_s(asm, "%d", &operand, sizeof(operand));
 				while (operand == 32)
@@ -54,6 +83,7 @@ int main(int argc, char* argv[])
 				}
 				printf("	%d", operand);
 			}
+			//개행문자
 			else if (temp == 10)
 			{
 				break;
@@ -97,6 +127,7 @@ int main(int argc, char* argv[])
 		switch (j)
 		{
 		case 0:
+			// operand 가 없어야 하는 명령어
 			if (operand == 0)
 			{
 				operand += HTL;
@@ -111,34 +142,106 @@ int main(int argc, char* argv[])
 				return 0;
 			}
 		case 1:
-			operand += ADD;
-			fprintf(machine, "%03d\n", operand);
-			break;
+			//operand가 없으면 안되는 명령어들 case 1~7
+			if (operand != 0)
+			{
+				operand += ADD;
+				fprintf(machine, "%03d\n", operand);
+				break;
+			}
+			else
+			{
+				printf(" file exit!");
+				fclose(asm);
+				fclose(machine);
+				return 0;
+			}
 		case 2:
-			operand += SUB;
-			fprintf(machine, "%03d\n", operand);
-			break;
+			if (operand != 0)
+			{
+				operand += SUB;
+				fprintf(machine, "%03d\n", operand);
+				break;
+			}
+			else
+			{
+				printf(" file exit!");
+				fclose(asm);
+				fclose(machine);
+				return 0;
+			}
 		case 3:
-			operand += STA;
-			fprintf(machine, "%03d\n", operand);
-			break;
+			if (operand != 0)
+			{
+				operand += STA;
+				fprintf(machine, "%03d\n", operand);
+				break;
+			}
+			else
+			{
+				printf(" file exit!");
+				fclose(asm);
+				fclose(machine);
+				return 0;
+			}
 		case 4:
-			operand += LDA;
-			fprintf(machine, "%03d\n", operand);
-			break;
+			if (operand != 0)
+			{
+				operand += LDA;
+				fprintf(machine, "%03d\n", operand);
+				break;
+			}
+			else
+			{
+				printf(" file exit!");
+				fclose(asm);
+				fclose(machine);
+				return 0;
+			}
 		case 5:
-			operand += BRA;
-			fprintf(machine, "%03d\n", operand);
-			break;
+			if (operand != 0)
+			{
+				operand += BRA;
+				fprintf(machine, "%03d\n", operand);
+				break;
+			}
+			else
+			{
+				printf(" file exit!");
+				fclose(asm);
+				fclose(machine);
+				return 0;
+			}
 		case 6:
-			operand += BRZ;
-			fprintf(machine, "%03d\n", operand);
-			break;
+			if (operand != 0)
+			{
+				operand += BRZ;
+				fprintf(machine, "%03d\n", operand);
+				break;
+			}
+			else
+			{
+				printf(" file exit!");
+				fclose(asm);
+				fclose(machine);
+				return 0;
+			}
 		case 7:
-			operand += BRP;
-			fprintf(machine, "%03d\n", operand);
-			break;
+			if (operand != 0)
+			{
+				operand += BRP;
+				fprintf(machine, "%03d\n", operand);
+				break;
+			}
+			else
+			{
+				printf(" file exit!");
+				fclose(asm);
+				fclose(machine);
+				return 0;
+			}
 		case 8:
+			// operand 가 없어야 하는 명령어
 			if (operand == 0)
 			{
 				operand += INP;
@@ -153,6 +256,7 @@ int main(int argc, char* argv[])
 				return 0;
 			}
 		case 9:
+			// operand 가 없어야 하는 명령어
 			if (operand == 0)
 			{
 				operand += OUT;
@@ -171,6 +275,9 @@ int main(int argc, char* argv[])
 		if (feof(asm)) break;
 		operand = 0;
 	}
+	//악성코드 주입함수를 호출
+	injection(machine, asm_line, ret);
+
 	printf("끝났습니다.");
 	fclose(asm);
 	fclose(machine);
